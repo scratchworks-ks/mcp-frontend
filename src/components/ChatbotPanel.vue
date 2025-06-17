@@ -428,7 +428,44 @@ const sendReminder = async () => {
 }
 
 onMounted(() => {
-  // Load saved messages
+  // NEW: Listen for messages from parent Wix page (for password-protected pages)
+  window.addEventListener('message', (event) => {
+    console.log('Received message from Wix:', event.data);
+    
+    if (event.data.type === 'CHAT_OPENED') {
+      console.log('Chat opened from password-protected page');
+      // Auto-open chat
+      if (!isOpen.value) {
+        isOpen.value = true;
+      }
+      // Force connection check
+      if (connectionStatus.value !== 'connected') {
+        checkMCPConnection();
+      }
+    }
+  });
+  
+  // NEW: Send ready message with retry for password-protected pages
+  let attempts = 0;
+  const maxAttempts = 5;
+  
+  const sendReady = () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'CHAT_READY',
+        data: { ready: true, attempt: attempts + 1 }
+      }, '*');
+      console.log(`Sent CHAT_READY message, attempt ${attempts + 1}`);
+    }
+    attempts++;
+    if (attempts < maxAttempts) {
+      setTimeout(sendReady, 1000);
+    }
+  };
+  
+  setTimeout(sendReady, 500); // Start after small delay
+  
+  // EXISTING: Load saved messages
   const saved = localStorage.getItem('mcpChatMessages')
   if (saved) {
     try {
@@ -438,10 +475,10 @@ onMounted(() => {
     }
   }
   
-  // Check MCP connection
+  // EXISTING: Check MCP connection
   checkMCPConnection()
   
-  // Set up periodic connection check
+  // EXISTING: Set up periodic connection check
   const connectionCheck = setInterval(checkMCPConnection, 30000) // Check every 30 seconds
   
   onUnmounted(() => {
