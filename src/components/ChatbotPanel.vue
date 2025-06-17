@@ -428,7 +428,7 @@ const sendReminder = async () => {
 }
 
 onMounted(() => {
-  // NEW: Listen for messages from parent Wix page (for password-protected pages)
+  // Listen for messages from parent Wix page (for password-protected pages)
   window.addEventListener('message', (event) => {
     console.log('Received message from Wix:', event.data);
     
@@ -445,7 +445,7 @@ onMounted(() => {
     }
   });
   
-  // NEW: Send ready message with retry for password-protected pages
+  // Send ready message with retry for password-protected pages
   let attempts = 0;
   const maxAttempts = 5;
   
@@ -465,7 +465,7 @@ onMounted(() => {
   
   setTimeout(sendReady, 500); // Start after small delay
   
-  // EXISTING: Load saved messages
+  // Load saved messages
   const saved = localStorage.getItem('mcpChatMessages')
   if (saved) {
     try {
@@ -475,10 +475,10 @@ onMounted(() => {
     }
   }
   
-  // EXISTING: Check MCP connection
+  // Check MCP connection
   checkMCPConnection()
   
-  // EXISTING: Set up periodic connection check
+  // Set up periodic connection check
   const connectionCheck = setInterval(checkMCPConnection, 30000) // Check every 30 seconds
   
   onUnmounted(() => {
