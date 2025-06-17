@@ -1,15 +1,614 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP AI Assistant</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<style>
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(40px);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.chat-toggle-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  background: #2563eb;
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-toggle-btn:hover {
+  background: #1d4ed8;
+}
+
+.chat-panel {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 700px;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  border-radius: 1rem;
+  height: 33vh;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.tab-button {
+  font-size: 0.85rem;
+  padding-bottom: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.tab-button.active {
+  font-weight: 600;
+  color: #1D4ED8;
+  border-bottom: 2px solid #1D4ED8;
+}
+
+.tab-button.inactive {
+  font-weight: 400;
+  color: #6B7280;
+}
+
+.action-button {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.message {
+  max-width: 80%;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  color: #111827;
+}
+
+.message.user {
+  background: #DBEAFE;
+  align-self: flex-end;
+  text-align: right;
+}
+
+.message.bot {
+  background: #F3F4F6;
+  align-self: flex-start;
+  text-align: left;
+}
+
+.message.system {
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  align-self: flex-start;
+  text-align: left;
+}
+
+.system-header {
+  font-weight: 600;
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+  color: #92400e;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.input-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.message-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  font-size: 1rem;
+}
+
+.message-input:disabled {
+  opacity: 0.6;
+}
+
+.send-button {
+  padding: 0.75rem 1.25rem;
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.send-button.enabled {
+  background: #2563eb;
+  cursor: pointer;
+}
+
+.send-button.disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.compliance-button {
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+
+.compliance-button:hover {
+  background: #059669;
+}
+
+.call-button {
+  padding: 0.5rem;
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.call-button:disabled,
+.reminder-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.call-button:hover:not(:disabled) {
+  background: #047857;
+}
+
+.reminder-button {
+  padding: 0.5rem;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.reminder-button:hover:not(:disabled) {
+  background: #d97706;
+}
+</style>
 </head>
 <body>
-    <div id="app">
-        <h1>🤖 MCP AI Assistant</h1>
-        <p>Your full-featured chatbot with MCP integration</p>
-        <button onclick="alert('Working on deploying your ChatbotPanel.vue...')">Placeholder</button>
-    </div>
-</body>
-</html>
+    <div id="app"></div>
+    <script>
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick, computed } = Vue;
+        
+        createApp({
+            setup() {
+                // Your MCP ChatbotPanel setup
+                const isOpen = ref(false);
+                const userInput = ref('');
+                const messages = ref([]);
+                const activeTab = ref('Chat');
+                const tabs = ['Chat', 'Tools', 'Calls'];
+                const isLoading = ref(false);
+                const connectionStatus = ref('disconnected');
+                const availableTools = ref([]);
+
+                const callForm = ref({
+                    phone_number: '',
+                    message: '',
+                    voice_id: 'default'
+                });
+
+                const reminderForm = ref({
+                    phone_number: '',
+                    user_name: '',
+                    reminder_type: '',
+                    due_date: '',
+                    process_link: ''
+                });
+
+                const chatMessages = computed(() => {
+                    return messages.value.filter(msg => msg.sender !== 'system')
+                });
+
+                const MCP_CONFIG = {
+                    baseUrl: 'https://w2yeklcbqa.execute-api.us-west-1.amazonaws.com',
+                    endpoints: {
+                        chat: '/context/claude-enhanced',
+                        workflows: '/context/workflows',
+                        health: '/health',
+                        state: '/context/state',
+                        compliance: '/context/create_compliance_record',
+                        call: '/calls/outbound',
+                        reminder: '/reminders/send'
+                    }
+                };
+
+                const sendMessage = async () => {
+                    const input = userInput.value.trim()
+                    if (!input || isLoading.value || connectionStatus.value !== 'connected') return
+
+                    messages.value.push({ 
+                        sender: 'user', 
+                        text: input,
+                        timestamp: Date.now()
+                    })
+                    userInput.value = ''
+                    isLoading.value = true
+
+                    try {
+                        const response = await axios.post(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.chat}`, {
+                            prompt: input
+                        }, {
+                            timeout: 30000
+                        })
+
+                        const botResponse = response.data.completion || 'No response received'
+                        
+                        messages.value.push({ 
+                            sender: 'bot', 
+                            text: botResponse,
+                            timestamp: Date.now()
+                        })
+
+                    } catch (error) {
+                        console.error('MCP chat error:', error)
+                        messages.value.push({ 
+                            sender: 'bot', 
+                            text: 'Error: Failed to get response from MCP server',
+                            timestamp: Date.now()
+                        })
+                    } finally {
+                        isLoading.value = false
+                    }
+                };
+
+                const checkMCPConnection = async () => {
+                    try {
+                        connectionStatus.value = 'connecting'
+                        const response = await axios.get(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.health}`)
+                        
+                        if (response.status === 200) {
+                            connectionStatus.value = 'connected'
+                            messages.value.push({
+                                sender: 'system',
+                                text: 'Connected to MCP server with all features available',
+                                timestamp: Date.now()
+                            })
+                        }
+                    } catch (error) {
+                        connectionStatus.value = 'disconnected'
+                        console.error('MCP connection failed:', error)
+                    }
+                };
+
+                onMounted(() => {
+                    checkMCPConnection();
+                });
+
+                return {
+                    isOpen,
+                    userInput,
+                    messages,
+                    chatMessages,
+                    activeTab,
+                    tabs,
+                    isLoading,
+                    connectionStatus,
+                    sendMessage,
+                    callForm,
+                    reminderForm
+                };
+            },
+            template: `
+  <div>
+    <!-- Toggle Button -->
+    <button
+      @click="isOpen = !isOpen"
+      class="chat-toggle-btn"
+    >
+      {{ isOpen ? 'Close Chat' : 'Chat' }}
+    </button>
+
+    <!-- Chat Panel -->
+    <transition name="slide-up">
+      <div
+        v-if="isOpen"
+        class="chat-panel"
+      >
+        <!-- Top Buttons -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <!-- Connection Status & Tabs -->
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <!-- MCP Connection Status -->
+            <div class="connection-status">
+              <div 
+                class="status-dot"
+                :style="{
+                  background: connectionStatus === 'connected' ? '#10b981' : 
+                             connectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'
+                }"
+              ></div>
+              <span class="status-text">
+                {{ connectionStatus === 'connected' ? 'MCP Connected' : 
+                   connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected' }}
+              </span>
+            </div>
+            
+            <!-- Tabs -->
+            <div style="display: flex; gap: 1rem;">
+              <button
+                v-for="tab in tabs"
+                :key="tab"
+                @click="activeTab = tab"
+                class="tab-button"
+                :class="{ active: activeTab === tab, inactive: activeTab !== tab }"
+              >
+                {{ tab }}
+              </button>
+            </div>
+          </div>
+          
+          <!-- Clear/Export -->
+          <div style="display: flex; gap: 0.5rem;">
+            <button @click="exportChat" title="Export chat" class="action-button">
+              Export
+            </button>
+            <button @click="clearChat" title="Clear chat" class="action-button">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages (only in Chat tab) -->
+        <div v-if="activeTab === 'Chat'" ref="chatContainer" class="chat-container">
+          <div
+            v-for="(msg, index) in chatMessages"
+            :key="index"
+            class="message"
+            :class="{ 
+              user: msg.sender === 'user', 
+              bot: msg.sender === 'bot'
+            }"
+          >
+            <div v-html="formatMessage(msg.text)"></div>
+            <div v-if="msg.timestamp" class="message-time">
+              {{ formatTime(msg.timestamp) }}
+            </div>
+          </div>
+          
+          <!-- Loading indicator -->
+          <div v-if="isLoading" class="loading-indicator">
+            <div class="loading-spinner"></div>
+            Thinking...
+          </div>
+        </div>
+
+        <!-- MCP Workflows tab -->
+        <div v-else-if="activeTab === 'Tools'" style="flex: 1; overflow-y: auto;">
+          <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Available Workflows</h3>
+            <div v-if="availableTools.length === 0" style="color: #6b7280; font-style: italic;">
+              No workflows available. Check MCP connection.
+            </div>
+            <div v-else>
+              <div 
+                v-for="tool in availableTools" 
+                :key="tool.name"
+                style="padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem;"
+              >
+                <div style="font-weight: 600; font-size: 0.8rem;">{{ tool.name }}</div>
+                <div style="font-size: 0.75rem; color: #6b7280;">{{ tool.description }}</div>
+                <button 
+                  @click="triggerWorkflow(tool.name)"
+                  style="margin-top: 0.25rem; padding: 0.25rem 0.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.25rem; font-size: 0.7rem; cursor: pointer;"
+                >
+                  Trigger
+                </button>
+              </div>
+            </div>
+            <div style="margin-top: 1rem;">
+              <button 
+                @click="createComplianceRecord"
+                class="compliance-button"
+              >
+                Create Compliance Record
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- NLPearl Calls tab -->
+        <div v-else-if="activeTab === 'Calls'" style="flex: 1; overflow-y: auto;">
+          <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">NLPearl Voice Calls</h3>
+            <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 1rem;">Note: NLPearl only supports voice calls, not SMS</p>
+            
+            <!-- Quick Call Form -->
+            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+              <h4 style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">Make Outbound Call</h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <input 
+                  v-model="callForm.phone_number" 
+                  type="tel" 
+                  placeholder="Phone number (e.g., +1234567890)"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                />
+                <textarea 
+                  v-model="callForm.message" 
+                  placeholder="Message to speak during the call"
+                  rows="3"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem; resize: vertical;"
+                ></textarea>
+                <select 
+                  v-model="callForm.voice_id"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                >
+                  <option value="default">Default Voice</option>
+                  <option value="professional">Professional</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="calm">Calm</option>
+                </select>
+                <button 
+                  @click="makeCall"
+                  :disabled="!callForm.phone_number || !callForm.message || isLoading"
+                  class="call-button"
+                >
+                  📞 Make Call
+                </button>
+              </div>
+            </div>
+
+            <!-- Reminder Form -->
+            <div style="background: #fef3c7; padding: 1rem; border-radius: 0.5rem;">
+              <h4 style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">Send Reminder Call</h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <input 
+                  v-model="reminderForm.phone_number" 
+                  type="tel" 
+                  placeholder="Phone number"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                />
+                <input 
+                  v-model="reminderForm.user_name" 
+                  type="text" 
+                  placeholder="User name"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                />
+                <select 
+                  v-model="reminderForm.reminder_type"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                >
+                  <option value="">Select reminder type</option>
+                  <option value="form_overdue">Form Overdue</option>
+                  <option value="document_missing">Document Missing</option>
+                  <option value="compliance_due">Compliance Due</option>
+                </select>
+                <input 
+                  v-model="reminderForm.due_date" 
+                  type="date" 
+                  placeholder="Due date"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                />
+                <input 
+                  v-model="reminderForm.process_link" 
+                  type="url" 
+                  placeholder="Process link (optional)"
+                  style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem; font-size: 0.8rem;"
+                />
+                <button 
+                  @click="sendReminder"
+                  :disabled="!reminderForm.phone_number || !reminderForm.user_name || !reminderForm.reminder_type || isLoading"
+                  class="reminder-button"
+                >
+                  🔔 Send Reminder Call
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Form (Chat tab only) -->
+        <form
+          v-if="activeTab === 'Chat'"
+          @submit.prevent="sendMessage"
+          class="input-form"
+        >
+          <input
+            v-model="userInput"
+            :disabled="isLoading || connectionStatus !== 'connected'"
+            type="text"
+            placeholder="Type your message..."
+            class="message-input"
+          />
+          <button
+            type="submit"
+            :disabled="isLoading || connectionStatus !== 'connected' || !userInput.trim()"
+            class="send-button"
+            :class="{ 
+              enabled: !isLoading && connectionStatus === 'connected' && userInput.trim(),
+              disabled: isLoading || connectionStatus !== 'connected' || !userInput.trim()
+            }"
+          >
+            {{ isLoading ? 'Sending...' : 'Send' }}
+          </button>
+        </form>
+      </div>
+    </transition>
+  </div>
