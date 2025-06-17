@@ -65,9 +65,10 @@
             font-size: 0.85rem;
             padding: 8px 16px;
             background: none;
-            border: 2px solid black;
+            border: none;
             cursor: pointer;
             border-radius: 6px;
+            text-transform: lowercase;
         }
 
         .tab-button.active {
@@ -79,6 +80,19 @@
         .tab-button.inactive {
             font-weight: 400;
             color: #6B7280;
+        }
+
+        .action-button {
+            font-size: 0.75rem;
+            color: #6b7280;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .action-button:hover {
+            color: #374151;
         }
 
         .chat-container {
@@ -152,11 +166,11 @@
 
         .send-button {
             padding: 0.75rem 1.25rem;
-            color: black;
-            border: 2px solid black;
+            color: white;
+            border: none;
             border-radius: 9999px;
             font-weight: 500;
-            background: white;
+            background: #2563eb;
             cursor: pointer;
         }
 
@@ -171,6 +185,74 @@
             padding: 20px;
             text-align: center;
         }
+
+        .tool-item {
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+        .tool-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .tool-description {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .tool-button {
+            margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .compliance-button {
+            padding: 0.5rem 1rem;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .call-section {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .call-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .call-button {
+            width: 100%;
+            padding: 0.5rem;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -183,10 +265,25 @@
                 const isOpen = ref(false);
                 const userInput = ref('');
                 const messages = ref([]);
-                const activeTab = ref('Chat');
-                const tabs = ['Chat', 'Tools', 'Calls'];
+                const activeTab = ref('chat');
+                const tabs = ['chat', 'tools', 'calls'];
                 const isLoading = ref(false);
                 const connectionStatus = ref('disconnected');
+                const availableTools = ref([]);
+
+                const callForm = ref({
+                    phone_number: '',
+                    message: '',
+                    voice_id: 'default'
+                });
+
+                const reminderForm = ref({
+                    phone_number: '',
+                    user_name: '',
+                    reminder_type: '',
+                    due_date: '',
+                    process_link: ''
+                });
 
                 const chatMessages = computed(() => {
                     return messages.value.filter(msg => msg.sender !== 'system')
@@ -214,6 +311,15 @@
 
                 const formatTime = (timestamp) => {
                     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                };
+
+                const clearChat = () => {
+                    messages.value = [];
+                    messages.value.push({
+                        sender: 'system',
+                        text: 'Chat cleared',
+                        timestamp: Date.now()
+                    });
                 };
 
                 const sendMessage = async () => {
@@ -255,6 +361,133 @@
                     }
                 };
 
+                const loadAvailableWorkflows = async () => {
+                    try {
+                        const response = await axios.get(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.workflows}`)
+                        availableTools.value = response.data.workflows?.map(workflow => ({
+                            name: workflow,
+                            description: `Trigger ${workflow} workflow`
+                        })) || []
+                    } catch (error) {
+                        console.error('Failed to load workflows:', error)
+                    }
+                };
+
+                const triggerWorkflow = async (workflowName) => {
+                    try {
+                        isLoading.value = true
+                        const response = await axios.post(`${MCP_CONFIG.baseUrl}/context/trigger/${workflowName}`, {
+                            params: {}
+                        })
+                        
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `Workflow '${workflowName}' has been triggered. ${response.data.status}`,
+                            timestamp: Date.now()
+                        })
+                    } catch (error) {
+                        console.error('Workflow trigger error:', error)
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `Failed to trigger workflow '${workflowName}': ${error.message}`,
+                            timestamp: Date.now()
+                        })
+                    } finally {
+                        isLoading.value = false
+                    }
+                };
+
+                const createComplianceRecord = async () => {
+                    try {
+                        isLoading.value = true
+                        const response = await axios.post(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.compliance}`)
+                        
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `Compliance record has been created. ID: ${response.data.inserted_id}`,
+                            timestamp: Date.now()
+                        })
+                    } catch (error) {
+                        console.error('Compliance record error:', error)
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `Failed to create compliance record: ${error.message}`,
+                            timestamp: Date.now()
+                        })
+                    } finally {
+                        isLoading.value = false
+                    }
+                };
+
+                const makeCall = async () => {
+                    if (!callForm.value.phone_number || !callForm.value.message) return
+                    
+                    try {
+                        isLoading.value = true
+                        const response = await axios.post(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.call}`, {
+                            phone_number: callForm.value.phone_number,
+                            message: callForm.value.message,
+                            voice_id: callForm.value.voice_id
+                        })
+                        
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `📞 Call initiated to ${callForm.value.phone_number}. Call ID: ${response.data.call_id}`,
+                            timestamp: Date.now()
+                        })
+                        
+                        // Clear form
+                        callForm.value = { phone_number: '', message: '', voice_id: 'default' }
+                        
+                    } catch (error) {
+                        console.error('Call error:', error)
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `❌ Call failed: ${error.message}`,
+                            timestamp: Date.now()
+                        })
+                    } finally {
+                        isLoading.value = false
+                    }
+                };
+
+                const sendReminder = async () => {
+                    if (!reminderForm.value.phone_number || !reminderForm.value.user_name || !reminderForm.value.reminder_type) return
+                    
+                    try {
+                        isLoading.value = true
+                        const payload = {
+                            phone_number: reminderForm.value.phone_number,
+                            user_name: reminderForm.value.user_name,
+                            reminder_type: reminderForm.value.reminder_type
+                        }
+                        
+                        if (reminderForm.value.due_date) payload.due_date = reminderForm.value.due_date
+                        if (reminderForm.value.process_link) payload.process_link = reminderForm.value.process_link
+                        
+                        const response = await axios.post(`${MCP_CONFIG.baseUrl}${MCP_CONFIG.endpoints.reminder}`, payload)
+                        
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `🔔 Reminder call sent to ${reminderForm.value.user_name} at ${reminderForm.value.phone_number}. Call ID: ${response.data.call_id}`,
+                            timestamp: Date.now()
+                        })
+                        
+                        // Clear form
+                        reminderForm.value = { phone_number: '', user_name: '', reminder_type: '', due_date: '', process_link: '' }
+                        
+                    } catch (error) {
+                        console.error('Reminder error:', error)
+                        messages.value.push({
+                            sender: 'bot',
+                            text: `❌ Reminder failed: ${error.message}`,
+                            timestamp: Date.now()
+                        })
+                    } finally {
+                        isLoading.value = false
+                    }
+                };
+
                 const checkMCPConnection = async () => {
                     try {
                         connectionStatus.value = 'connecting'
@@ -262,9 +495,10 @@
                         
                         if (response.status === 200) {
                             connectionStatus.value = 'connected'
+                            await loadAvailableWorkflows()
                             messages.value.push({
                                 sender: 'system',
-                                text: '✅ Connected to your MCP server! Full access to workflows, calls, and data.',
+                                text: '✅ Connected to your MCP server! All features available.',
                                 timestamp: Date.now()
                             })
                         }
@@ -291,15 +525,23 @@
                     tabs,
                     isLoading,
                     connectionStatus,
+                    availableTools,
+                    callForm,
+                    reminderForm,
                     sendMessage,
+                    clearChat,
                     formatMessage,
-                    formatTime
+                    formatTime,
+                    triggerWorkflow,
+                    createComplianceRecord,
+                    makeCall,
+                    sendReminder
                 };
             },
             template: `
                 <div>
                     <button @click="isOpen = !isOpen" class="chat-toggle-btn">
-                        {{ isOpen ? 'Close Chat' : 'Open MCP Chat' }}
+                        {{ isOpen ? 'close chat' : 'open mcp chat' }}
                     </button>
 
                     <div v-if="isOpen" class="chat-panel">
@@ -311,8 +553,8 @@
                                                    connectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'
                                     }"></div>
                                     <span class="status-text">
-                                        {{ connectionStatus === 'connected' ? 'MCP Connected' : 
-                                           connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected' }}
+                                        {{ connectionStatus === 'connected' ? 'mcp connected' : 
+                                           connectionStatus === 'connecting' ? 'connecting...' : 'disconnected' }}
                                     </span>
                                 </div>
                                 
@@ -328,9 +570,13 @@
                                     </button>
                                 </div>
                             </div>
+                            
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button @click="clearChat" class="action-button">clear</button>
+                            </div>
                         </div>
 
-                        <div v-if="activeTab === 'Chat'" class="chat-container">
+                        <div v-if="activeTab === 'chat'" class="chat-container">
                             <div v-for="(msg, index) in chatMessages" :key="index" class="message" :class="{ 
                                 user: msg.sender === 'user', 
                                 bot: msg.sender === 'bot'
@@ -343,28 +589,71 @@
                             
                             <div v-if="isLoading" class="loading-indicator">
                                 <div class="loading-spinner"></div>
-                                AI is thinking...
+                                ai is thinking...
                             </div>
                         </div>
 
-                        <div v-else-if="activeTab === 'Tools'" class="tab-content">
-                            <h3>🛠️ MCP Tools & Workflows</h3>
-                            <p>Your MCP server workflows and tools will be available here.</p>
-                            <p><strong>Connected to:</strong> w2yeklcbqa.execute-api.us-west-1.amazonaws.com</p>
+                        <div v-else-if="activeTab === 'tools'" class="tab-content">
+                            <h3>mcp tools & workflows</h3>
+                            <div v-if="availableTools.length === 0" style="color: #6b7280; font-style: italic;">
+                                no workflows available. check mcp connection.
+                            </div>
+                            <div v-else>
+                                <div v-for="tool in availableTools" :key="tool.name" class="tool-item">
+                                    <div class="tool-name">{{ tool.name }}</div>
+                                    <div class="tool-description">{{ tool.description }}</div>
+                                    <button @click="triggerWorkflow(tool.name)" class="tool-button">
+                                        trigger
+                                    </button>
+                                </div>
+                            </div>
+                            <button @click="createComplianceRecord" class="compliance-button">
+                                create compliance record
+                            </button>
                         </div>
 
-                        <div v-else-if="activeTab === 'Calls'" class="tab-content">
-                            <h3>📞 Voice Calls</h3>
-                            <p>NLPearl voice call integration ready.</p>
-                            <p>Outbound calls and reminders available via your MCP server.</p>
+                        <div v-else-if="activeTab === 'calls'" class="tab-content">
+                            <h3>voice calls</h3>
+                            
+                            <div class="call-section">
+                                <h4>make outbound call</h4>
+                                <input v-model="callForm.phone_number" type="tel" placeholder="phone number" class="call-input" />
+                                <textarea v-model="callForm.message" placeholder="message to speak" rows="3" class="call-input"></textarea>
+                                <select v-model="callForm.voice_id" class="call-input">
+                                    <option value="default">default voice</option>
+                                    <option value="professional">professional</option>
+                                    <option value="friendly">friendly</option>
+                                    <option value="calm">calm</option>
+                                </select>
+                                <button @click="makeCall" class="call-button" :disabled="!callForm.phone_number || !callForm.message || isLoading">
+                                    �� make call
+                                </button>
+                            </div>
+
+                            <div class="call-section" style="background: #fef3c7;">
+                                <h4>send reminder call</h4>
+                                <input v-model="reminderForm.phone_number" type="tel" placeholder="phone number" class="call-input" />
+                                <input v-model="reminderForm.user_name" type="text" placeholder="user name" class="call-input" />
+                                <select v-model="reminderForm.reminder_type" class="call-input">
+                                    <option value="">select reminder type</option>
+                                    <option value="form_overdue">form overdue</option>
+                                    <option value="document_missing">document missing</option>
+                                    <option value="compliance_due">compliance due</option>
+                                </select>
+                                <input v-model="reminderForm.due_date" type="date" class="call-input" />
+                                <input v-model="reminderForm.process_link" type="url" placeholder="process link (optional)" class="call-input" />
+                                <button @click="sendReminder" class="call-button" style="background: #f59e0b;" :disabled="!reminderForm.phone_number || !reminderForm.user_name || !reminderForm.reminder_type || isLoading">
+                                    🔔 send reminder call
+                                </button>
+                            </div>
                         </div>
 
-                        <form v-if="activeTab === 'Chat'" @submit.prevent="sendMessage" class="input-form">
+                        <form v-if="activeTab === 'chat'" @submit.prevent="sendMessage" class="input-form">
                             <input
                                 v-model="userInput"
                                 :disabled="isLoading || connectionStatus !== 'connected'"
                                 type="text"
-                                placeholder="Ask your MCP AI anything..."
+                                placeholder="ask your mcp ai anything..."
                                 class="message-input"
                             />
                             <button
@@ -372,7 +661,7 @@
                                 :disabled="isLoading || connectionStatus !== 'connected' || !userInput.trim()"
                                 class="send-button"
                             >
-                                {{ isLoading ? 'Sending...' : 'Send' }}
+                                {{ isLoading ? 'sending...' : 'send' }}
                             </button>
                         </form>
                     </div>
